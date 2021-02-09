@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"gb-go-architecture/lesson-1/shop_new/models"
+	"gb-go-architecture/lesson-1/shop/models"
 	"testing"
 )
 
