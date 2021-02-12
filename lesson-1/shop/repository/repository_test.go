@@ -5,20 +5,18 @@ import (
 	"testing"
 )
 
-var (
-	testItems = map[string]*models.Item{
-		"someName1": {Name: "someName1", Price: 10},
-		"someName2": {Name: "someName2", Price: 20},
-		"someName3": {Name: "someName3", Price: 30},
-		"someName4": {Name: "someName4", Price: 40},
-		"someName5": {Name: "someName5", Price: 50},
-		"someName6": {Name: "someName6", Price: 60},
+func testItemsFirst() (item *models.Item) {
+	for _, value := range testItems {
+		// we just need any Item
+		item = value
+		break
 	}
-)
+	return item
+}
 
 func TestGetItem(t *testing.T) {
 	db := NewMapDB()
-	expectedItem, err := db.CreateItem(testItems["someName1"])
+	expectedItem, err := db.CreateItem(testItemsFirst())
 	if err != nil {
 		t.Fatal("unexpected error during setup test: ", err)
 	}
@@ -218,7 +216,7 @@ func TestListItem(t *testing.T) {
 
 func TestDeleteItem(t *testing.T) {
 	db := NewMapDB()
-	expectedItem, err := db.CreateItem(testItems["someName1"])
+	expectedItem, err := db.CreateItem(testItemsFirst())
 	if err != nil {
 		t.Fatal("unexpected error during setup test: ", err)
 	}
@@ -247,13 +245,13 @@ func TestDeleteItem(t *testing.T) {
 
 func TestUpdateItem(t *testing.T) {
 	db := NewMapDB()
-	expectedItem, err := db.CreateItem(testItems["someName1"])
+	expectedItem, err := db.CreateItem(testItemsFirst())
 	if err != nil {
 		t.Fatal("unexpected error during setup test: ", err)
 	}
 
 	t.Run("Update existing", func(t *testing.T) {
-		newItem := &models.Item{ID: expectedItem.ID, Name: "someName1", Price: 100}
+		newItem := &models.Item{ID: expectedItem.ID, Name: expectedItem.Name, Price: 100}
 		_, err := db.UpdateItem(newItem)
 		if err != nil {
 			t.Error("unexpected error during update: ", err)
@@ -276,7 +274,7 @@ func TestUpdateItem(t *testing.T) {
 	})
 
 	t.Run("Update not existing", func(t *testing.T) {
-		newItem := &models.Item{ID: -1, Name: "someName1", Price: 100}
+		newItem := &models.Item{ID: -1, Name: expectedItem.Name, Price: 100}
 		_, err := db.UpdateItem(newItem)
 		if err != ErrNotFound {
 			t.Errorf("unexpected error raised: expected %v, result: %v ", ErrNotFound, err)
