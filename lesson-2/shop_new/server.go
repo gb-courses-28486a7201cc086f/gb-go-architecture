@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"shop/models"
-	"shop/repository"
-	"shop/service"
+	"gb-go-architecture/lesson-2/shop_new/models"
+	"gb-go-architecture/lesson-2/shop_new/repository"
+	"gb-go-architecture/lesson-2/shop_new/service"
 
 	"github.com/gorilla/mux"
 )

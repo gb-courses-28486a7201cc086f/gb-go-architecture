@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
+	"gb-go-architecture/lesson-2/shop_new/notification"
+	"gb-go-architecture/lesson-2/shop_new/repository"
+	"gb-go-architecture/lesson-2/shop_new/service"
 	"log"
 	"net/http"
-	"shop/notification"
-	"shop/repository"
-	"shop/service"
 
 	"github.com/gorilla/mux"
 )
@@ -17,7 +17,7 @@ func main() {
 
 	flag.Parse()
 
-	notif, err := notification.NewTelegramBot(tokenStr, 323615875)
+	notif, err := notification.NewTelegramBot(tokenStr, 382551486)
 	if err != nil {
 		log.Fatal(err)
 	}

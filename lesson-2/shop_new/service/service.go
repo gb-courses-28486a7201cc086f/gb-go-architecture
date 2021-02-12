@@ -2,10 +2,10 @@ package service
 
 import (
 	"errors"
+	"gb-go-architecture/lesson-2/shop_new/models"
+	"gb-go-architecture/lesson-2/shop_new/notification"
+	"gb-go-architecture/lesson-2/shop_new/repository"
 	"log"
-	"shop/models"
-	"shop/notification"
-	"shop/repository"
 )
 
 type Service interface {

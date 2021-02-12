@@ -2,7 +2,7 @@ package notification
 
 import (
 	"fmt"
-	"shop/models"
+	"gb-go-architecture/lesson-2/shop_new/models"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
