@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"gb-go-architecture/lesson-2/shop_new/models"
-	"gb-go-architecture/lesson-2/shop_new/notification"
 	"gb-go-architecture/lesson-2/shop_new/repository"
 	"log"
 )
@@ -12,9 +11,14 @@ type Service interface {
 	CreateOrder(order *models.Order) (*models.Order, error)
 }
 
+type Notification interface {
+	SendOrderCreated(order *models.Order) error
+}
+
 type service struct {
-	notif notification.Notification
-	rep   repository.Repository
+	userNotif  Notification
+	staffNotif Notification
+	rep        repository.Repository
 }
 
 var (
@@ -37,15 +41,19 @@ func (s *service) CreateOrder(order *models.Order) (*models.Order, error) {
 		return nil, err
 	}
 
-	if err := s.notif.SendOrderCreated(order); err != nil {
-		log.Println(err)
+	if err := s.staffNotif.SendOrderCreated(order); err != nil {
+		log.Printf("send staffNotif error: %s", err)
+	}
+	if err := s.userNotif.SendOrderCreated(order); err != nil {
+		log.Printf("send userNotif error: %s", err)
 	}
 	return order, err
 }
 
-func NewService(rep repository.Repository, notif notification.Notification) Service {
+func NewService(rep repository.Repository, staffNotif, userNotif Notification) Service {
 	return &service{
-		notif: notif,
-		rep:   rep,
+		userNotif:  userNotif,
+		staffNotif: staffNotif,
+		rep:        rep,
 	}
 }

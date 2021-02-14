@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"gb-go-architecture/lesson-2/shop_new/notification"
 	"gb-go-architecture/lesson-2/shop_new/repository"
 	"gb-go-architecture/lesson-2/shop_new/service"
@@ -9,21 +8,37 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/kelseyhightower/envconfig"
 )
 
+type Config struct {
+	TgChatID   int64
+	TgTokenStr string
+	SMTPHost   string
+	SMTPPort   string
+	SMTPUser   string
+	SMTPPass   string
+}
+
 func main() {
-	var tokenStr string
-	flag.StringVar(&tokenStr, "t", "", "token for telegram api")
+	var appConf Config
+	if err := envconfig.Process("myshop", &appConf); err != nil {
+		log.Fatalf("Cannot load config, error: %s", err.Error())
+	}
 
-	flag.Parse()
-
-	notif, err := notification.NewTelegramBot(tokenStr, 382551486)
+	staffNotif, err := notification.NewTelegramBot(appConf.TgTokenStr, appConf.TgChatID)
+	if err != nil {
+		log.Fatal(err)
+	}
+	userNotif, err := notification.NewSMTPClient(
+		appConf.SMTPUser, appConf.SMTPPass, appConf.SMTPHost, appConf.SMTPPort,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	rep := repository.NewMapDB()
-	service := service.NewService(rep, notif)
+	service := service.NewService(rep, staffNotif, userNotif)
 	s := &server{
 		service: service,
 		rep:     rep,
