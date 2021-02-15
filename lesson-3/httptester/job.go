@@ -147,7 +147,7 @@ func (jr *JobReport) Update(data *workerpool.JobResult) {
 	}
 }
 
-func (jr *JobReport) PrintAvgTime() {
+func (jr *JobReport) LogAvgTime() {
 	var avgSuccessTime float64
 	var print bool
 	jr.mx.RLock()
@@ -163,19 +163,21 @@ func (jr *JobReport) PrintAvgTime() {
 }
 
 func (jr *JobReport) PrintRPS() {
-	var rpsSuccess, rpsSent float64
+	var rpsSuccess, rpsSent, avgSuccessTime float64
 	jr.mx.RLock()
 	sentReq := float64(jr.reqTotal - jr.reqFailed)
 	testExecTime := jr.jobLastEnd.Sub(*jr.jobFirstStart).Seconds()
 	rpsSent = sentReq / testExecTime
 	rpsSuccess = float64(jr.reqSuccess) / testExecTime
+	if jr.reqSuccess > 0 {
+		avgSuccessTime = jr.reqSuccessTotalTime.Seconds() / float64(jr.reqSuccess)
+	}
 	jr.mx.RUnlock()
 
-	fmt.Printf(
-		"\nResults:\nSent %.0f requests, %d success\nRPS via success: %.0f\nRPS via sent: %.0f\n",
-		sentReq, jr.reqSuccess, rpsSuccess, rpsSent,
-	)
+	fmt.Printf("\nResults:\nSent %.0f requests, %d success", sentReq, jr.reqSuccess)
 	fmt.Printf("\nServer errors by code: %v\n", jr.reqServerErrors)
+	fmt.Printf("\nRPS via success: %.0f\nRPS via sent: %.0f\n", rpsSuccess, rpsSent)
+	fmt.Printf("\nAvg response time: %.3f sec\n", avgSuccessTime)
 }
 
 func JobReporter(wg *sync.WaitGroup, maxResults int, resultsChan <-chan *workerpool.JobResult, doneChan chan<- struct{}) {
@@ -192,7 +194,7 @@ func JobReporter(wg *sync.WaitGroup, maxResults int, resultsChan <-chan *workerp
 	ticker := time.NewTicker(time.Second)
 	go func() {
 		for range ticker.C {
-			report.PrintAvgTime()
+			report.LogAvgTime()
 		}
 	}()
 
