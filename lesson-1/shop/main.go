@@ -1,18 +1,14 @@
 package main
 
 import (
-	"gb-go-architecture/lesson-1/shop_new/repository"
+	"gb-go-architecture/lesson-1/shop/repository"
 	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
 )
 
-func main() {
-	s := &server{
-		rep: repository.NewMapDB(),
-	}
-
+func NewRouter(s *server) *mux.Router {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/item", s.listItemHandler).Methods("GET")
@@ -21,9 +17,17 @@ func main() {
 	router.HandleFunc("/item/{id}", s.deleteItemHandler).Methods("DELETE")
 	router.HandleFunc("/item/{id}", s.updateItemHandler).Methods("PUT")
 
+	return router
+}
+
+func main() {
+	s := &server{
+		rep: repository.NewMapDB(),
+	}
+
 	srv := &http.Server{
 		Addr:    ":8081",
-		Handler: router,
+		Handler: NewRouter(s),
 	}
 	log.Fatal(srv.ListenAndServe())
 }

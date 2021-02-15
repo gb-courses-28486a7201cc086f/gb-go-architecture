@@ -1,4 +1,4 @@
-module gb-go-architecture/lesson-1/shop_new
+module gb-go-architecture/lesson-1/shop
 
 go 1.15
 
