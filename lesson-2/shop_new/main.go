@@ -20,6 +20,21 @@ type Config struct {
 	SMTPPass   string
 }
 
+func NewRouter(s *server) *mux.Router {
+	router := mux.NewRouter()
+
+	router.HandleFunc("/items", s.listItemHandler).Methods("GET")
+	router.HandleFunc("/items", s.createItemHandler).Methods("POST")
+	router.HandleFunc("/items/{id}", s.getItemHandler).Methods("GET")
+	router.HandleFunc("/items/{id}", s.deleteItemHandler).Methods("DELETE")
+	router.HandleFunc("/items/{id}", s.updateItemHandler).Methods("PUT")
+
+	router.HandleFunc("/orders", s.listOrdersHandler).Methods("GET")
+	router.HandleFunc("/orders", s.createOrderHandler).Methods("POST")
+
+	return router
+}
+
 func main() {
 	var appConf Config
 	if err := envconfig.Process("myshop", &appConf); err != nil {
@@ -44,20 +59,9 @@ func main() {
 		rep:     rep,
 	}
 
-	router := mux.NewRouter()
-
-	router.HandleFunc("/items", s.listItemHandler).Methods("GET")
-	router.HandleFunc("/items", s.createItemHandler).Methods("POST")
-	router.HandleFunc("/items/{id}", s.getItemHandler).Methods("GET")
-	router.HandleFunc("/items/{id}", s.deleteItemHandler).Methods("DELETE")
-	router.HandleFunc("/items/{id}", s.updateItemHandler).Methods("PUT")
-
-	router.HandleFunc("/orders", s.listOrdersHandler).Methods("GET")
-	router.HandleFunc("/orders", s.createOrderHandler).Methods("POST")
-
 	srv := &http.Server{
 		Addr:    ":8081",
-		Handler: router,
+		Handler: NewRouter(s),
 	}
 	log.Fatal(srv.ListenAndServe())
 }
