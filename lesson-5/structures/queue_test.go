@@ -27,7 +27,7 @@ func TestQueue(t *testing.T) {
 		}
 	}
 
-	// stach should be empty after we "pop" all values
+	// queue should be empty after we "pop" all values
 	_, err := queue.Pop()
 	if err != ErrEmptyQueue {
 		t.Errorf("unexpected error, got %v, expected %v", err, ErrEmptyQueue)

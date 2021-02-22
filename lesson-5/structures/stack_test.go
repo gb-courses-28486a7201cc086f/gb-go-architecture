@@ -30,7 +30,7 @@ func TestStack(t *testing.T) {
 		}
 	}
 
-	// stach should be empty after we "pop" all values
+	// stack should be empty after we "pop" all values
 	_, err := stack.Pop()
 	if err != ErrEmptyStack {
 		t.Errorf("unexpected error, got %v, expected %v", err, ErrEmptyStack)
