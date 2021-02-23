@@ -13,11 +13,6 @@ import (
 	"gb-go-architecture/lesson-3/httptester/workerpool"
 )
 
-const (
-	requestsDefault = 1000
-	timeoutDefault  = 0
-)
-
 var (
 	workers     int
 	requests    int
