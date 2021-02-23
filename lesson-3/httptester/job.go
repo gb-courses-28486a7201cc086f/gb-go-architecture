@@ -24,12 +24,15 @@ type Config struct {
 type TestURLJob struct {
 	ID      int
 	Client  *http.Client
-	Request *http.Request
+	URL     string
+	Method  string
+	Payload *bytes.Buffer
 }
 
 func (tj *TestURLJob) Run() *workerpool.JobResult {
+	req, _ := http.NewRequest(tj.Method, tj.URL, tj.Payload)
 	start := time.Now()
-	resp, err := tj.Client.Do(tj.Request)
+	resp, err := tj.Client.Do(req)
 	end := time.Now()
 	if err != nil {
 		return &workerpool.JobResult{
@@ -51,54 +54,7 @@ func (tj *TestURLJob) Run() *workerpool.JobResult {
 	}
 }
 
-type TestJobPool struct {
-	jobs []*TestURLJob
-	size int
-	next int
-	mx   *sync.Mutex
-}
-
-func (jp *TestJobPool) Next() (job *TestURLJob) {
-	jp.mx.Lock()
-	if jp.next == jp.size {
-		job = jp.jobs[0]
-		jp.next = 1
-	} else {
-		job = jp.jobs[jp.next]
-		jp.next = jp.next + 1
-	}
-	jp.mx.Unlock()
-	return job
-}
-
-func NewTestJobPool(conf *Config) (*TestJobPool, error) {
-	jobs := make([]*TestURLJob, conf.Workers)
-	for i := 0; i < conf.Workers; i++ {
-		client := &http.Client{
-			Timeout: conf.HTTPTimeOut,
-		}
-		req, err := http.NewRequest(conf.Method, conf.URL, bytes.NewBuffer(conf.Payload))
-		if err != nil {
-			return nil, err
-		}
-		jobs[i] = &TestURLJob{
-			ID:      i + 1,
-			Client:  client,
-			Request: req,
-		}
-	}
-	return &TestJobPool{
-		mx:   &sync.Mutex{},
-		jobs: jobs,
-		size: conf.Workers,
-	}, nil
-}
-
 type JobReport struct {
-	mx                  *sync.RWMutex
-	maxRequests         int
-	doneChan            chan<- struct{}
-	isDone              bool
 	reqTotal            int
 	reqSuccess          int
 	reqServerErrors     map[int]int
@@ -109,19 +65,6 @@ type JobReport struct {
 }
 
 func (jr *JobReport) Update(data *workerpool.JobResult) {
-	jr.mx.Lock()
-	defer jr.mx.Unlock()
-
-	// skip if report exceeded expected results count
-	if jr.reqSuccess >= jr.maxRequests {
-		// raise done signal only once
-		if !jr.isDone {
-			jr.isDone = true
-			jr.doneChan <- struct{}{}
-		}
-		return
-	}
-
 	jr.reqTotal++
 	// collect failed requests (client/network issues)
 	if data.Code < 0 {
@@ -148,59 +91,51 @@ func (jr *JobReport) Update(data *workerpool.JobResult) {
 }
 
 func (jr *JobReport) LogAvgTime() {
-	var avgSuccessTime float64
-	var print bool
-	jr.mx.RLock()
 	if jr.reqSuccess > 0 {
-		avgSuccessTime = jr.reqSuccessTotalTime.Seconds() / float64(jr.reqSuccess)
-		print = true
-	}
-	jr.mx.RUnlock()
-
-	if print {
+		avgSuccessTime := jr.reqSuccessTotalTime.Seconds() / float64(jr.reqSuccess)
 		log.Printf("Avg response time, sec: %.3f", avgSuccessTime)
 	}
 }
 
 func (jr *JobReport) PrintRPS() {
-	var rpsSuccess, rpsSent, avgSuccessTime float64
-	jr.mx.RLock()
 	sentReq := float64(jr.reqTotal - jr.reqFailed)
 	testExecTime := jr.jobLastEnd.Sub(*jr.jobFirstStart).Seconds()
-	rpsSent = sentReq / testExecTime
-	rpsSuccess = float64(jr.reqSuccess) / testExecTime
+	rpsSuccess := float64(jr.reqSuccess) / testExecTime
+
+	var avgSuccessTime float64
 	if jr.reqSuccess > 0 {
 		avgSuccessTime = jr.reqSuccessTotalTime.Seconds() / float64(jr.reqSuccess)
 	}
-	jr.mx.RUnlock()
 
 	fmt.Printf("\nResults:\nSent %.0f requests, %d success", sentReq, jr.reqSuccess)
 	fmt.Printf("\nServer errors by code: %v\n", jr.reqServerErrors)
-	fmt.Printf("\nRPS via success: %.0f\nRPS via sent: %.0f\n", rpsSuccess, rpsSent)
+	fmt.Printf("\nRPS via success: %.0f\n", rpsSuccess)
 	fmt.Printf("\nAvg response time: %.3f sec\n", avgSuccessTime)
 }
 
-func JobReporter(wg *sync.WaitGroup, maxResults int, resultsChan <-chan *workerpool.JobResult, doneChan chan<- struct{}) {
+func JobReporter(wg *sync.WaitGroup, resultsChan <-chan *workerpool.JobResult) {
 	defer wg.Done()
 
 	report := &JobReport{
-		mx:              &sync.RWMutex{},
-		maxRequests:     maxResults,
-		doneChan:        doneChan,
 		reqServerErrors: make(map[int]int),
 	}
 
 	// setup ticker to print sub results
 	ticker := time.NewTicker(time.Second)
-	go func() {
-		for range ticker.C {
+
+	running := true
+	for running {
+		select {
+		case v, ok := <-resultsChan:
+			// resultsChan closed => stop report
+			if !ok {
+				running = false
+				break
+			}
+			report.Update(v)
+		case <-ticker.C:
 			report.LogAvgTime()
 		}
-	}()
-
-	// collect results
-	for result := range resultsChan {
-		report.Update(result)
 	}
 
 	// all results done -> ticker can stop
@@ -208,21 +143,4 @@ func JobReporter(wg *sync.WaitGroup, maxResults int, resultsChan <-chan *workerp
 
 	// print final result
 	report.PrintRPS()
-}
-
-func JobProducer(wg *sync.WaitGroup, conf *Config, jobChan chan<- workerpool.Job, cancelChan <-chan struct{}) {
-	defer wg.Done()
-	defer close(jobChan)
-
-	jobPool, _ := NewTestJobPool(conf)
-
-	for {
-		job := jobPool.Next()
-		select {
-		case <-cancelChan:
-			return
-		default:
-			jobChan <- job
-		}
-	}
 }

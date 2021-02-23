@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -17,39 +19,19 @@ const (
 )
 
 var (
-	workers     int    = 100
-	requests    int    = 0
-	timeout     int    = 0
-	url         string = ""
-	method      string = "GET"
-	payload     string = ""
-	httpTimeOut int    = 5000
+	workers     int
+	requests    int
+	timeout     time.Duration
+	url         string
+	method      string
+	payload     string
+	httpTimeOut time.Duration
 
-	errLimitFlags = errors.New("One of: \"-c\" or \"-t\" flags should be provided")
-	errEmptyURL   = errors.New("URL flag \"-url\" should be provided")
+	errEmptyURL = errors.New("URL flag \"-url\" should be provided")
 )
 
 func setUp() (*Config, error) {
 	flag.Parse()
-
-	missRequests := requests == 0
-	missTimeout := timeout == 0
-	// one of limit should be set
-	if missRequests && missTimeout {
-		return nil, errLimitFlags
-	}
-	// setup defauls if one of flags missed
-	if missRequests {
-		requests = requestsDefault
-	}
-	if missTimeout {
-		timeout = timeoutDefault
-	}
-	timeOutStr := fmt.Sprintf("%dms", timeout)
-	timeoutDuration, err := time.ParseDuration(timeOutStr)
-	if err != nil {
-		return nil, err
-	}
 
 	if url == "" {
 		return nil, errEmptyURL
@@ -58,21 +40,59 @@ func setUp() (*Config, error) {
 	return &Config{
 		Workers:     workers,
 		Requests:    requests,
-		Timeout:     timeoutDuration,
+		Timeout:     timeout,
 		URL:         url,
 		Method:      method,
-		HTTPTimeOut: time.Second * 5,
+		Payload:     []byte(payload),
+		HTTPTimeOut: httpTimeOut,
 	}, nil
 }
 
 func init() {
 	flag.IntVar(&workers, "w", 100, "Parallel workers which perform requests")
 	flag.IntVar(&requests, "c", 0, "Total count of requests to send")
-	flag.IntVar(&timeout, "t", 0, "Time limit (milliseconds) to perform test. 0 means no time limit")
+	flag.DurationVar(&timeout, "t", time.Second*0, "Time limit to perform test. 0 means no time limit")
 	flag.StringVar(&url, "url", "", "URL to test")
 	flag.StringVar(&method, "method", "GET", "HTTP method for test requests")
 	flag.StringVar(&payload, "data", "", "Payload for test requests")
-	flag.IntVar(&httpTimeOut, "reqtimeout", 5000, "Timeout for HTTP client (milliseconds)")
+	flag.DurationVar(&httpTimeOut, "reqtimeout", time.Second*5, "Timeout for HTTP client")
+}
+
+func produceJobs(config *Config, jobsChan chan<- workerpool.Job) {
+	client := &http.Client{Timeout: config.HTTPTimeOut}
+
+	// timer to stop on duration
+	var timerChan <-chan time.Time
+	if config.Timeout.Milliseconds() > 0 {
+		timerChan = time.NewTimer(config.Timeout).C
+	}
+
+	// produce jobs
+	jobsCount := 0
+	running := true
+	for running {
+		jobsCount++
+		job := &TestURLJob{
+			ID:      jobsCount,
+			Client:  client,
+			URL:     config.URL,
+			Method:  config.Method,
+			Payload: bytes.NewBuffer(config.Payload),
+		}
+
+		select {
+		case jobsChan <- job:
+			// send new job and
+			// check if jobs counter exceed,
+			// config.Requests==0 means infinite test
+			if config.Requests != 0 && jobsCount >= config.Requests {
+				running = false
+			}
+		case <-timerChan:
+			// stop on timeout
+			running = false
+		}
+	}
 }
 
 func main() {
@@ -85,30 +105,16 @@ func main() {
 
 	pool, _ := workerpool.NewPool(config.Workers)
 
-	cancelChan := make(chan struct{})
-	// should store 1 message w-o blocking
-	// because timeout can be before and select-case will not proceed
-	exceedChan := make(chan struct{}, 1)
-
 	wg := &sync.WaitGroup{}
-	wg.Add(2) // JobProducer + JobReporter
-	go JobProducer(wg, config, pool.JobsChan, cancelChan)
-	go JobReporter(wg, config.Requests, pool.ResultsChan, exceedChan)
+	wg.Add(1)
+	// collect anf print results
+	go JobReporter(wg, pool.ResultsChan)
 
-	// timer to stop on duration
-	var timerChan <-chan time.Time
-	if config.Timeout.Milliseconds() > 0 {
-		timerChan = time.NewTimer(config.Timeout).C
-	}
+	// send jobs until timeout or count exceed
+	produceJobs(config, pool.JobsChan)
 
-	// stop producer on either timeout or count exceed
-	select {
-	case <-timerChan:
-		cancelChan <- struct{}{}
-	case <-exceedChan:
-		cancelChan <- struct{}{}
-	}
-
+	// shutdown gracefully
+	close(pool.JobsChan)
 	pool.Join()
 	wg.Wait()
 }
