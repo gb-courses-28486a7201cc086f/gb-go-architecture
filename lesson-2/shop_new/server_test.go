@@ -35,7 +35,7 @@ func doTestReq(client *http.Client, method, url string, payload io.Reader) (resp
 
 func passHTTPStatus(resp *http.Response, expectedStatus int) (ok bool, msg string) {
 	if resp == nil {
-		return false, fmt.Sprint("Bad response, got nil, expected valid response")
+		return false, "Bad response, got nil, expected valid response"
 	}
 	if resp.StatusCode != expectedStatus {
 		return false, fmt.Sprintf("Bad status code, got %v, expected %v", resp.StatusCode, expectedStatus)
@@ -67,7 +67,7 @@ func TestSuccessHTTPHandlers(t *testing.T) {
 	client := &http.Client{Timeout: httpTimeout}
 
 	t.Run("createItemHandler", func(t *testing.T) {
-		expectedItem := *&models.Item{
+		expectedItem := models.Item{
 			Name:  "create handler test",
 			Price: 100,
 		}
@@ -200,7 +200,7 @@ func TestSuccessHTTPHandlers(t *testing.T) {
 	})
 
 	t.Run("updateItemHandler", func(t *testing.T) {
-		expectedItem := *&models.Item{
+		expectedItem := models.Item{
 			ID:    itemToUpdate.ID,
 			Name:  itemToUpdate.Name,
 			Price: 100,
@@ -282,12 +282,16 @@ func TestUserFailHTTPHandlers(t *testing.T) {
 	})
 
 	t.Run("deleteItemHandler 400", func(t *testing.T) {
-		resp, _, err := doTestReq(client, http.MethodDelete, server.URL+"/items/1", nil)
+		testPayload, err := json.Marshal("{}")
+		if err != nil {
+			t.Fatal("cannot create test payload", err.Error())
+		}
+		resp, _, err := doTestReq(client, http.MethodDelete, server.URL+"/items/badID", bytes.NewBuffer(testPayload))
 		if err != nil {
 			t.Fatal("unexpected test server error: ", err.Error())
 		}
 
-		ok, msg := passHTTPStatus(resp, http.StatusNoContent)
+		ok, msg := passHTTPStatus(resp, http.StatusBadRequest)
 		if !ok {
 			t.Error(msg)
 		}
@@ -296,8 +300,7 @@ func TestUserFailHTTPHandlers(t *testing.T) {
 	t.Run("updateItemHandler 400", func(t *testing.T) {
 		testPayload, err := json.Marshal("{}")
 		if err != nil {
-			t.Error("cannot create test payload: ", err)
-			return
+			t.Fatal("cannot create test payload: ", err)
 		}
 
 		resp, _, err := doTestReq(client, http.MethodPut, server.URL+"/items/1", bytes.NewBuffer(testPayload))
@@ -340,7 +343,7 @@ func TestServerFailHTTPHandlers(t *testing.T) {
 	repo := repository.NewMapDBErrorMock()
 	s := &server{rep: repo}
 
-	expectedItem := *&models.Item{
+	expectedItem := models.Item{
 		ID:    100,
 		Name:  "test item",
 		Price: 100,
