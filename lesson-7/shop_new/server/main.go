@@ -1,9 +1,9 @@
 package main
 
 import (
-	"gb-go-architecture/lesson-2/shop_new/notification"
-	"gb-go-architecture/lesson-2/shop_new/repository"
-	"gb-go-architecture/lesson-2/shop_new/service"
+	"gb-go-architecture/lesson-7/shop_new/server/notification"
+	"gb-go-architecture/lesson-7/shop_new/server/repository"
+	"gb-go-architecture/lesson-7/shop_new/server/service"
 	"log"
 	"net/http"
 

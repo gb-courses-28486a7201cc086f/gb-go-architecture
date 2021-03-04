@@ -3,7 +3,7 @@ package repository
 import (
 	"errors"
 
-	"gb-go-architecture/lesson-2/shop_new/models"
+	"gb-go-architecture/lesson-7/shop_new/server/models"
 )
 
 var (

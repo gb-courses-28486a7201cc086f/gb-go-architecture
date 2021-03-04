@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"gb-go-architecture/lesson-2/shop_new/models"
-	"gb-go-architecture/lesson-2/shop_new/repository"
+	"gb-go-architecture/lesson-7/shop_new/server/models"
+	"gb-go-architecture/lesson-7/shop_new/server/repository"
 )
 
 const httpTimeout = 30 * time.Second
