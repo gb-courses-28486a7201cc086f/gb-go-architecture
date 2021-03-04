@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"gb-go-architecture/lesson-1/shop_new/models"
+	"gb-go-architecture/lesson-1/shop/models"
 )
 
 var (
