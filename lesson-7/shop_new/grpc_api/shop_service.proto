@@ -56,7 +56,7 @@ message Order {
     string customername = 2;
     string customerphone = 3;
     string customeremail = 4;
-    repeated ItemID itemids = 5;
+    repeated int32 itemids = 5;
     Timestamp createdat = 6;
     Timestamp updatedat = 7;
 }
