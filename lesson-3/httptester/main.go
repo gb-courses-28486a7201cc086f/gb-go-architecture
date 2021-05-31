@@ -1,3 +1,7 @@
+// Package main implements cli-tool to send parallel
+// HTTP requests to specified URL and calculate average response time.
+//
+// Run tool with -h parameter to see all cli flags
 package main
 
 import (
@@ -10,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"gb-go-architecture/lesson-3/httptester/workerpool"
+	"github.com/gb-courses-28486a7201cc086f/gb-gomod-testing/v2/httptester/workerpool"
 )
 
 var (
@@ -26,6 +30,13 @@ var (
 )
 
 func setUp() (*Config, error) {
+	flag.IntVar(&workers, "w", 100, "Parallel workers which perform requests")
+	flag.IntVar(&requests, "c", 0, "Total count of requests to send")
+	flag.DurationVar(&timeout, "t", time.Second*0, "Time limit to perform test. 0 means no time limit")
+	flag.StringVar(&url, "url", "", "URL to test")
+	flag.StringVar(&method, "method", "GET", "HTTP method for test requests")
+	flag.StringVar(&payload, "data", "", "Payload for test requests")
+	flag.DurationVar(&httpTimeOut, "reqtimeout", time.Second*5, "Timeout for HTTP client")
 	flag.Parse()
 
 	if url == "" {
@@ -41,16 +52,6 @@ func setUp() (*Config, error) {
 		Payload:     []byte(payload),
 		HTTPTimeOut: httpTimeOut,
 	}, nil
-}
-
-func init() {
-	flag.IntVar(&workers, "w", 100, "Parallel workers which perform requests")
-	flag.IntVar(&requests, "c", 0, "Total count of requests to send")
-	flag.DurationVar(&timeout, "t", time.Second*0, "Time limit to perform test. 0 means no time limit")
-	flag.StringVar(&url, "url", "", "URL to test")
-	flag.StringVar(&method, "method", "GET", "HTTP method for test requests")
-	flag.StringVar(&payload, "data", "", "Payload for test requests")
-	flag.DurationVar(&httpTimeOut, "reqtimeout", time.Second*5, "Timeout for HTTP client")
 }
 
 func produceJobs(config *Config, jobsChan chan<- workerpool.Job) {
@@ -72,7 +73,7 @@ func produceJobs(config *Config, jobsChan chan<- workerpool.Job) {
 			Client:  client,
 			URL:     config.URL,
 			Method:  config.Method,
-			Payload: bytes.NewBuffer(config.Payload),
+			Payload: bytes.NewReader([]byte{}),
 		}
 
 		select {
@@ -98,7 +99,11 @@ func main() {
 	}
 	fmt.Printf("Starting test for %s %s\n\n", config.Method, config.URL)
 
-	pool, _ := workerpool.NewPool(config.Workers)
+	pool, err := workerpool.NewPool(config.Workers)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(255)
+	}
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)

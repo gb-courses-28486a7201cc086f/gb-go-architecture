@@ -7,11 +7,9 @@ import (
 )
 
 type JobResult struct {
-	Code      int
-	Message   string
-	Payload   []byte
-	StartTime time.Time
-	EndTime   time.Time
+	Code     int
+	Message  string
+	ExecTime time.Duration
 }
 
 type Job interface {
