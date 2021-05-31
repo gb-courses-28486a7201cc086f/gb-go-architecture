@@ -1,0 +1,71 @@
+syntax = "proto3";
+package grpc_api;
+
+option go_package = ".;grpc_api";
+
+// Items repo definition
+service ItemRepository {
+    rpc CreateItem(Item) returns (Item) {}
+    rpc UpdateItem(Item) returns (Item) {}
+    rpc DeleteItem(Item) returns (Empty) {}
+    rpc GetItem(ItemFilter) returns (Item) {}
+    rpc ListItems(ItemList) returns (ItemList) {}
+}
+
+// represents methods which not returns any data
+message Empty {
+}
+
+message Timestamp {
+    // UTC seconds from unix epoch
+    int64 seconds = 1;
+}
+
+message Item {
+    int32 id = 1;
+    string name = 2;
+    int64 price = 3;
+    Timestamp createdat = 4;
+    Timestamp updatedat = 5;
+}
+
+message ItemFilter {
+    int32 limit = 1;
+    int32 offset = 2;
+    int64 priceleft = 3;
+    int64 priceright = 4;
+}
+
+message ItemList {
+    repeated Item items = 1;
+}
+
+
+// Orders service definition
+service OrderRepository {
+    rpc CreateOrder(Order) returns (Order) {}
+    rpc ListOrders(OrderFilter) returns (OrderList) {}
+}
+
+message ItemID {
+    int32 id = 1;
+}
+
+message Order {
+    int32 id = 1;
+    string customername = 2;
+    string customerphone = 3;
+    string customeremail = 4;
+    repeated int32 itemids = 5;
+    Timestamp createdat = 6;
+    Timestamp updatedat = 7;
+}
+
+message OrderFilter {
+    int32 limit = 1;
+    int32 offset = 2;
+}
+
+message OrderList {
+    repeated Order orders = 1;
+}
